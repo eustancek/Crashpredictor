@@ -1,0 +1,38 @@
+/* Base Styles */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.touch-button, .large-button {
+    font-size: 1.2em;
+    padding: 15px;
+    margin: 10px 0;
+    width: 100%;
+}
+
+.scroll-textarea {
+    height: 150px;
+    font-size: 1.1em;
+    line-height: 1.4;
+    resize: none;
+}
+
+.prediction-box {
+    font-size: 1.3em;
+    padding: 15px;
+    background-color: #f5f5f5;
+    border-radius: 5px;
+}
+
+canvas {
+    max-width: 100%;
+    height: auto;
+}

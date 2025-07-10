@@ -1,0 +1,5 @@
+runtime:
+  type: docker
+  image: python:3.9
+app:
+  entrypoint: ["python", "-m", "backend.main"]
