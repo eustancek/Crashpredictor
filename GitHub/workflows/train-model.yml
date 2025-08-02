@@ -1,0 +1,62 @@
+name: Train Crash Prediction Model
+
+on:
+  # Run daily at midnight UTC
+  schedule:
+    - cron: '0 0 * * *'
+  # Also allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  train-model:
+    runs-on: ubuntu-latest
+    env:
+      # Supabase configuration
+      SUPABASE_PROJECT_REF: ${{ secrets.supabaseid }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.supabasepassword }}
+      SUPABASE_DB_USER: postgres.${{ secrets.supabaseid }}
+      SUPABASE_DB_HOST: aws-0-ca-central-1.pooler.supabase.com
+      SUPABASE_DB_PORT: "5432"
+      SUPABASE_DB_NAME: "postgres"
+      
+      # Hugging Face configuration
+      HF_REPO_ID: "eustancek/Google-colab"
+      HF_TOKEN: ${{ secrets.huggingtoken }}
+      HF_MODEL_PATH: "models/latest_model.keras"
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Train model
+      run: |
+        mkdir -p models
+        python src/training.py
+
+    - name: Commit updated model
+      id: commit
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add models/
+        git commit -m "Update trained model" || echo "No changes to commit"
+        git push origin main
+      continue-on-error: true  # Don't fail if there are no changes
+
+    - name: Notify Render to redeploy API
+      if: always() && steps.commit.outcome == 'success'
+      run: |
+        curl -H "Authorization: Bearer ${{ secrets.renderapl }}" \
+             -X POST https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/deploy
+      env:
+        RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
