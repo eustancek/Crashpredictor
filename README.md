@@ -2,7 +2,7 @@
 
 A sophisticated crash prediction model using LSTM, CNN, and Transformer-inspired attention layers to predict the next crash value in gaming platforms.
 
-![Crash Prediction Demo](https://i.imgur.com/placeholder.png) <!-- Replace with actual demo image -->
+
 
 ## ✨ Features
 
