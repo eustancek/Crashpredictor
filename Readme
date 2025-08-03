@@ -1,6 +1,0 @@
-# CrashPredictor 🚨
-
-## Overview
-A machine learning model to predict crashes using Supabase and Flask as the backend.
-
-## Project Structugit lfs track "models/*.js"re
