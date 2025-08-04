@@ -1,0 +1,8 @@
+version: 2
+apps:
+  crash-predictor-api:
+    build_command: pip install -r requirements.txt
+    start_command: python api/app.py
+    envs:
+      HF_TOKEN: ${{ secrets.HUGGINGTOKEN }}
+      PORT: "8000"
