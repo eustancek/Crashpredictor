@@ -1,0 +1,94 @@
+name: Advanced Space Keep-Alive
+
+on:
+  # Run every 4 minutes 30 seconds (below HF's 5-minute threshold)
+  schedule:
+    - cron: '*/4 * * * *'  # Every 4 minutes
+  # Manual trigger for debugging
+  workflow_dispatch:
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check Space Health
+        id: health_check
+        run: |
+          # Get current time for logging
+          CURRENT_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          
+          # Space URL - update this if your space URL is different
+          SPACE_URL="https://eustancek-google-colab.hf.space"
+          
+          echo "Current time: $CURRENT_TIME"
+          echo "Checking Space health at $SPACE_URL"
+          
+          # Check if Space is up
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SPACE_URL/health")
+          
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "Space is healthy (HTTP 200)"
+            echo "space_healthy=true" >> $GITHUB_OUTPUT
+          else
+            echo "Space is unhealthy (HTTP $HTTP_STATUS)"
+            echo "space_healthy=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Get warm-up metrics
+          if [ "$HTTP_STATUS" = "200" ]; then
+            METRICS=$(curl -s "$SPACE_URL/warmup/status")
+            echo "warmup_metrics=$METRICS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Warm Up Space
+        if: steps.health_check.outputs.space_healthy == 'false' || github.event_name == 'workflow_dispatch'
+        run: |
+          SPACE_URL="https://eustancek-google-colab.hf.space"
+          echo "Warming up Space at $SPACE_URL..."
+          
+          # Try multiple warm-up strategies with fallbacks
+          for strategy in heavy medium light auto; do
+            echo "Trying $strategy warm-up strategy..."
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "$SPACE_URL/warmup/advanced?strategy=$strategy")
+            
+            if [ "$RESPONSE" = "200" ]; then
+              echo "✅ Warm-up successful with $strategy strategy"
+              exit 0
+            fi
+            
+            echo "❌ Warm-up failed with $strategy strategy (HTTP $RESPONSE)"
+            sleep 2
+          done
+          
+          echo "❌ All warm-up strategies failed"
+          exit 1
+
+      - name: Verify Warm-Up
+        run: |
+          SPACE_URL="https://eustancek-google-colab.hf.space"
+          echo "Verifying warm-up..."
+          
+          # Check prediction endpoint
+          START_TIME=$(date +%s)
+          PREDICTION=$(curl -s -X POST "$SPACE_URL/predict" \
+            -H "Content-Type: application/json" \
+            -d '{"values": [1.2,1.5,1.8,2.1,2.4,2.7,3.0,3.3,3.6,3.9,4.2,4.5,4.8,5.1,5.4,5.7,6.0,6.3,6.6,6.9,7.2,7.5,7.8,8.1,8.4,8.7,9.0,9.3,9.6,9.9,1.2,1.5,1.8,2.1,2.4,2.7,3.0,3.3,3.6,3.9,4.2,4.5,4.8,5.1,5.4,5.7,6.0,6.3,6.6,6.9]}')
+          END_TIME=$(date +%s)
+          
+          DURATION=$((END_TIME-START_TIME))
+          
+          if echo "$PREDICTION" | grep -q "prediction"; then
+            echo "✅ Prediction successful in $DURATION seconds"
+            echo "prediction_time=$DURATION" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Prediction failed: $PREDICTION"
+            exit 1
+          fi
+
+      - name: Log Metrics
+        run: |
+          echo "📊 Space health metrics:"
+          echo "Warm-up time: ${{ steps.warm_up.outputs.warmup_time }}s"
+          echo "Prediction time: ${{ steps.verify.outputs.prediction_time }}s"
+          echo "Space healthy: ${{ steps.health_check.outputs.space_healthy }}"
