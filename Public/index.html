@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crash Prediction System</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.0.1/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.2.0/dist/chartjs-adapter-luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@2.1.0/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.0/dist/chartjs-plugin-zoom.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+        .multiplier-input {
+            transition: all 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+        .multiplier-input:focus {
+            animation: none;
+            box-shadow: 0 0 0 2px #4c6ef5;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(76, 110, 245, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(76, 110, 245, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 110, 245, 0); }
+        }
+        .multiplier-item {
+            transition: all 0.2s ease;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .multiplier-item:hover {
+            transform: translateX(5px);
+            background-color: #2d3748;
+        }
+        .delete-btn {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .multiplier-item:hover .delete-btn {
+            opacity: 1;
+        }
+        .scroll-container {
+            scrollbar-width: thin;
+            scrollbar-color: #4a5568 #1a202c;
+        }
+        .scroll-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scroll-container::-webkit-scrollbar-track {
+            background: #1a202c;
+        }
+        .scroll-container::-webkit-scrollbar-thumb {
+            background-color: #4a5568;
+            border-radius: 20px;
+        }
+        .confidence-meter {
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        .confidence-fill {
+            height: 100%;
+            transition: width 0.5s ease;
+        }
+        .voice-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #e53e3e;
+            margin-right: 8px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .voice-indicator.active {
+            opacity: 1;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .prediction-card {
+            transform: scale(0.95);
+            opacity: 0;
+            transition: all 0.4s ease;
+        }
+        .prediction-card.visible {
+            transform: scale(1);
+            opacity: 1;
+        }
+        .speech-bubble {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background-color: #2d3748;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+            max-width: 300px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .speech-bubble.visible {
+            opacity: 1;
+        }
+        .accuracy-badge {
+            animation: grow 0.5s;
+        }
+        @keyframes grow {
+            from { transform: scale(0.8); opacity: 0.5; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .model-history {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .history-item {
+            border-left: 3px solid #4c6ef5;
+            padding-left: 12px;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+        .history-item:hover {
+            background-color: #2d3748;
+        }
+        .confidence-level {
+            position: relative;
+            height: 24px;
+            margin: 10px 0;
+            background: #2d3748;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .confidence-fill {
+            height: 100%;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            transition: width 0.5s ease;
+        }
+        .range-visualization {
+            height: 80px;
+            position: relative;
+            margin: 15px 0;
+            background: #1a202c;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        .range-bar {
+            position: absolute;
+            height: 100%;
+            top: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            transition: all 0.5s ease;
+        }
+        .delete-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .delete-modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .modal-content {
+            background: #2d3748;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 400px;
+            width: 90%;
+            transform: translateY(20px);
+            transition: transform 0.3s;
+        }
+        .delete-modal.active .modal-content {
+            transform: translateY(0);
+        }
+        .voice-command {
+            background: #1a202c;
+            padding: 8px 12px;
+            border-radius: 20px;
+            margin: 4px 0;
+            font-size: 13px;
+            opacity: 0.7;
+        }
+        .voice-command.recent {
+            opacity: 1;
+            background: #2d3748;
+            font-weight: bold;
+        }
+        .typing-effect {
+            overflow: hidden;
+            border-right: 2px solid #4c6ef5;
+            white-space: nowrap;
+            margin: 0;
+            letter-spacing: 0.1em;
+            animation: 
+                typing 3.5s steps(40, end),
+                blink-caret 0.75s step-end infinite;
+        }
+        @keyframes typing {
+            from { width: 0 }
+            to { width: 100% }
+        }
+        @keyframes blink-caret {
+            from, to { border-color: transparent }
+            50% { border-color: #4c6ef5 }
+        }
+        .confidence-meter {
+            height: 20px;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            margin-top: 5px;
+        }
+        .confidence-fill {
+            height: 100%;
+            transition: width 0.5s ease;
+        }
+        .risk-level {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 5px;
+        }
+        .prediction-trend {
+            height: 60px;
+            position: relative;
+        }
+        .trend-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            border-radius: 2px;
+            transition: width 0.5s ease;
+        }
+        .trend-label {
+            position: absolute;
+            bottom: -20px;
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        .accuracy-circle {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: conic-gradient(#4c6ef5 0%, #4c6ef5 var(--accuracy), #2d3748 var(--accuracy), #2d3748 100%);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .accuracy-inner {
+            width: 70px;
+            height: 70px;
+            background: #1a202c;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100">
+    <!-- Speech Bubble for Voice Feedback -->
+    <div id="speechBubble" class="speech-bubble"></div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="delete-modal">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4 text-white">Confirm Deletion</h3>
+            <p id="deleteMessage" class="mb-6 text-gray-300">Are you sure you want to delete this multiplier?</p>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelDelete" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-white">Cancel</button>
+                <button id="confirmDelete" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded text-white">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete All Confirmation Modal -->
+    <div id="deleteAllModal" class="delete-modal">
+        <div class="modal-content">
+            <h3 class="text-xl font-bold mb-4 text-white">Confirm Bulk Deletion</h3>
+            <p class="mb-6 text-gray-300">Are you sure you want to delete all multipliers? This cannot be undone.</p>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelDeleteAll" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded text-white">Cancel</button>
+                <button id="confirmDeleteAll" class="px-4 py-2 bg-red-600 hover:bg-red-500 rounded text-white">Delete All</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <!-- Header -->
+        <header class="text-center mb-10">
+            <h1 class="text-4xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">
+                Crash Prediction System
+            </h1>
+            <p class="text-gray-400 mb-6">Advanced prediction with dynamic range analysis and confidence metrics</p>
+            <div class="flex items-center justify-center space-x-2 text-sm text-gray-500">
+                <span>Created by Kenitius Ngandwe</span>
+                <span>•</span>
+                <span id="systemStatus" class="flex items-center">
+                    <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                    System Operational
+                </span>
+                <span>•</span>
+                <span>Version 2.3.1</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column - Input & Multipliers -->
+            <div class="lg:col-span-1">
+                <!-- Input Section -->
+                <div class="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                        Enter Multipliers
+                    </h2>
+                    
+                    <div class="mb-4">
+                        <div class="flex space-x-2">
+                            <input 
+                                type="number" 
+                                id="multiplierInput" 
+                                class="multiplier-input bg-gray-700 text-white rounded-lg px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Enter multiplier value (e.g., 1.25)"
+                                step="0.01"
+                                min="0.01"
+                                max="100"
+                            >
+                            <button 
+                                id="addMultiplier" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 transition duration-200"
+                            >
+                                Add
+                            </button>
+                        </div>
+                        <p class="text-gray-400 text-sm mt-2">
+                            Press Enter or click Add to include a multiplier value
+                        </p>
+                    </div>
+
+                    <!-- Voice Input Controls -->
+                    <div class="bg-gray-700 rounded-lg p-4 mb-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="font-medium flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd" />
+                                </svg>
+                                Voice Command Input
+                            </h3>
+                            <div class="flex items-center space-x-2">
+                                <div id="voiceIndicator" class="voice-indicator"></div>
+                                <button 
+                                    id="toggleVoice" 
+                                    class="bg-gray-600 hover:bg-gray-500 text-white rounded px-3 py-1 text-sm transition duration-200"
+                                >
+                                    Start Listening
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="voiceCommands" class="space-y-1">
+                            <div class="voice-command">Say "multiplier [number]" to add a value</div>
+                            <div class="voice-command">Say "delete last" to remove the most recent multiplier</div>
+                            <div class="voice-command">Say "delete all" to clear all multipliers</div>
+                            <div class="voice-command">Say "done" to generate prediction</div>
+                        </div>
+                    </div>
+
+                    <!-- Multipliers List -->
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="font-medium flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.04.305.07.61.07.93a7 7 0 11-13.90.00c.00.202.01.403.03.602.17 3.055 2.56 5.397 5.61 5.53.05.002.102.003.154.003.264 0 .527-.014.789-.042 2.976-.26 5.212-2.504 5.472-5.48.028-.262.042-.525.042-.789 0-.052-.001-.104-.003-.156A6.97 6.97 0 0112.93 17z" />
+                                </svg>
+                                Current Multipliers (<span id="multiplierCount">0</span>)
+                            </h3>
+                            <div class="flex space-x-2">
+                                <button 
+                                    id="deleteAllMultipliers" 
+                                    class="text-red-400 hover:text-red-300 transition duration-200"
+                                    title="Delete all multipliers"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div id="multipliersContainer" class="scroll-container max-h-60 overflow-y-auto pr-2">
+                            <!-- Multipliers will be added here dynamically -->
+                            <div class="text-center text-gray-500 py-4" id="noMultipliersMessage">
+                                No multipliers added yet
+                            </div>
+                        </div>
+                        
+                        <div class="mt-4 pt-4 border-t border-gray-600">
+                            <button 
+                                id="generatePrediction" 
+                                class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded-lg transition duration-200"
+                                disabled
+                            >
+                                Generate Prediction
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Model History -->
+                <div class="bg-gray-800 rounded-xl p-6">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zm1-1a1 1 0 112 0 1 1 0 01-2 0zm1 4a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                        </svg>
+                        Model History
+                    </h2>
+                    
+                    <div class="model-history scroll-container pr-2">
+                        <div class="text-center text-gray-500 py-4" id="noHistoryMessage">
+                            No training history yet
+                        </div>
+                        <!-- History items will be added here dynamically -->
+                    </div>
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-600">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-400">Last updated:</span>
+                            <span id="lastUpdated" class="text-sm font-medium">Never</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Prediction & Analytics -->
+            <div class="lg:col-span-2">
+                <!-- Accuracy & System Status -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <!-- Accuracy Display -->
+                    <div class="bg-gradient-to-br from-blue-900 to-indigo-900 rounded-xl p-5 shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-400 text-sm">Prediction Accuracy</p>
+                                <div class="mt-2">
+                                    <div class="text-2xl font-bold accuracy-badge" id="accuracyDisplay">75.00%</div>
+                                    <div class="text-xs text-gray-300 mt-1">Current model performance</div>
+                                </div>
+                            </div>
+                            <div class="accuracy-circle" id="accuracyCircle">
+                                <div class="accuracy-inner" id="accuracyValue">75%</div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div class="text-xs text-gray-400 mb-1">Confidence Level</div>
+                            <div class="confidence-meter">
+                                <div id="confidenceMeter" class="confidence-fill bg-blue-500" style="width: 75%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Range Analysis -->
+                    <div class="bg-gradient-to-br from-purple-900 to-pink-900 rounded-xl p-5 shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-400 text-sm">Prediction Range</p>
+                                <div class="mt-2">
+                                    <div class="text-2xl font-bold" id="rangeDisplay">±20.00%</div>
+                                    <div class="text-xs text-gray-300 mt-1">Current prediction confidence</div>
+                                </div>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-purple-500 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div class="text-xs text-gray-400 mb-1">Range Trend</div>
+                            <div class="prediction-trend">
+                                <div id="rangeTrend" class="trend-line bg-purple-500" style="width: 65%"></div>
+                                <div class="trend-label">Narrowing</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Risk Level -->
+                    <div class="bg-gradient-to-br from-red-900 to-orange-900 rounded-xl p-5 shadow-lg">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-gray-400 text-sm">Risk Assessment</p>
+                                <div class="mt-2">
+                                    <div class="text-2xl font-bold" id="riskLevel">Medium</div>
+                                    <div class="text-xs text-gray-300 mt-1">Current market conditions</div>
+                                </div>
+                            </div>
+                            <div class="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <div class="text-xs text-gray-400 mb-1">Market Volatility</div>
+                            <div class="confidence-meter">
+                                <div id="volatilityMeter" class="confidence-fill bg-orange-500" style="width: 45%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prediction Results -->
+                <div class="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg prediction-card" id="predictionResults">
+                    <div class="flex justify-between items-start mb-4">
+                        <h2 class="text-xl font-semibold flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                            </svg>
+                            Prediction Results
+                        </h2>
+                        <span id="predictionTimestamp" class="text-sm text-gray-500">Just now</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <div class="bg-gray-700 rounded-lg p-4 mb-4">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="text-gray-400">Predicted Value</span>
+                                    <span class="text-2xl font-bold text-blue-400" id="predictedValue">2.45</span>
+                                </div>
+                                <div class="range-visualization">
+                                    <div id="rangeLower" class="range-bar bg-blue-500" style="left: 20%; width: 5%; justify-content: flex-end; padding-right: 8px;">Lower</div>
+                                    <div id="rangeMiddle" class="range-bar bg-green-500" style="left: 25%; width: 50%;">Most Likely</div>
+                                    <div id="rangeUpper" class="range-bar bg-blue-500" style="left: 75%; width: 5%; justify-content: flex-start; padding-left: 8px;">Upper</div>
+                                </div>
+                                <div class="flex justify-between text-sm mt-2 text-gray-300">
+                                    <span id="rangeLowerValue">1.80</span>
+                                    <span id="rangeUpperValue">3.10</span>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 rounded-lg p-4">
+                                <h3 class="font-medium mb-3 flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9a2 2 0 01-2-2V9a2 2 0 012-2zm0 9a2 2 0 012-2h5a2 2 0 012 2v1a2 2 0 01-2 2H4a2 2 0 01-2-2v-1z" />
+                                    </svg>
+                                    Confidence Analysis
+                                </h3>
+                                
+                                <div class="mb-3">
+                                    <div class="flex justify-between text-sm mb-1">
+                                        <span>Overall Confidence</span>
+                                        <span id="confidencePercentage">75%</span>
+                                    </div>
+                                    <div class="confidence-meter">
+                                        <div id="confidenceBar" class="confidence-fill bg-purple-500" style="width: 75%"></div>
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="bg-gray-800 p-3 rounded">
+                                        <div class="text-xs text-gray-400 mb-1">Bayesian Inference</div>
+                                        <div class="font-medium" id="bayesianConfidence">78%</div>
+                                    </div>
+                                    <div class="bg-gray-800 p-3 rounded">
+                                        <div class="text-xs text-gray-400 mb-1">Trend Strength</div>
+                                        <div class="font-medium" id="trendConfidence">72%</div>
+                                    </div>
+                                    <div class="bg-gray-800 p-3 rounded">
+                                        <div class="text-xs text-gray-400 mb-1">Volatility Regime</div>
+                                        <div class="font-medium" id="volatilityConfidence">65%</div>
+                                    </div>
+                                    <div class="bg-gray-800 p-3 rounded">
+                                        <div class="text-xs text-gray-400 mb-1">Mean Reversion</div>
+                                        <div class="font-medium" id="meanReversionConfidence">82%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="bg-gray-700 rounded-lg p-4 mb-4">
+                                <h3 class="font-medium mb-3 flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                    Risk Assessment
+                                </h3>
+                                
+                                <div class="mb-4">
+                                    <div class="text-sm font-medium mb-1">Risk Level</div>
+                                    <div class="risk-level bg-yellow-900 text-yellow-200" id="riskDisplay">Medium</div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <div class="text-sm font-medium mb-1">Market Regime</div>
+                                    <div class="bg-gray-800 p-2 rounded text-center" id="marketRegime">Volatile Trending</div>
+                                </div>
+                                
+                                <div class="mb-4">
+                                    <div class="text-sm font-medium mb-1">Spike Detection</div>
+                                    <div class="flex items-center">
+                                        <span id="spikeStatus" class="inline-block w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                                        <span id="spikeMessage">No significant spikes detected</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="text-sm font-medium mb-1">Volatility Index</div>
+                                    <div class="confidence-meter">
+                                        <div id="volatilityBar" class="confidence-fill bg-orange-500" style="width: 45%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-700 rounded-lg p-4">
+                                <h3 class="font-medium mb-3 flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1H8a3 3 0 00-3 3v1.5a1.5 1.5 0 01-3 0V6z" clip-rule="evenodd" />
+                                        <path d="M6 12a2 2 0 100-4 2 2 0 000 4zm10 0a2 2 0 100-4 2 2 0 000 4zM8 16a2 2 0 100-4 2 2 0 000 4z" />
+                                    </svg>
+                                    Prediction Timeline
+                                </h3>
+                                <div class="h-40">
+                                    <canvas id="predictionTimeline"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Analytics -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-gray-800 rounded-xl p-6 shadow-lg">
+                        <h2 class="text-xl font-semibold mb-4 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11 4a1 1 0 100 2h-2a1 1 0 100 2h2a1 1 0 100-2h-2a1 1 0 100 2h2a1 1 0 100-2h-2z" clip-rule="evenodd" />
+                            </svg>
+                            Accuracy Trend
+                        </h2>
+                        <div class="h-64">
+                            <canvas id="accuracyChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-800 rounded-xl p-6 shadow-lg">
+                        <h2 class="text-xl font-semibold mb-4 flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-purple-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11 4a1 1 0 100 2h-2a1 1 0 100 2h2a1 1 0 100-2h-2a1 1 0 100 2h2a1 1 0 100-2h-2z" clip-rule="evenodd" />
+                            </svg>
+                            Range Evolution
+                        </h2>
+                        <div class="h-64">
+                            <canvas id="rangeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pattern Analysis -->
+                <div class="bg-gray-800 rounded-xl p-6 shadow-lg">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM4 5a1 1 0 011-1h10a1 1 0 011 1v8a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" clip-rule="evenodd" />
+                        </svg>
+                        Advanced Pattern Analysis
+                    </h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <div class="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center mr-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-blue-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium">Trend Strength</div>
+                                    <div class="text-xs text-gray-400">Current market direction</div>
+                                </div>
+                            </div>
+                            <div class="h-24">
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                            <div class="mt-2 text-center font-medium" id="trendStrength">Strong Upward</div>
+                        </div>
+                        
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <div class="w-8 h-8 rounded-full bg-purple-900 flex items-center justify-center mr-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium">Volatility</div>
+                                    <div class="text-xs text-gray-400">Market uncertainty level</div>
+                                </div>
+                            </div>
+                            <div class="h-24">
+                                <canvas id="volatilityChart"></canvas>
+                            </div>
+                            <div class="mt-2 text-center font-medium" id="volatilityLevel">Moderate</div>
+                        </div>
+                        
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <div class="w-8 h-8 rounded-full bg-yellow-900 flex items-center justify-center mr-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-yellow-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium">Mean Reversion</div>
+                                    <div class="text-xs text-gray-400">Return to average tendency</div>
+                                </div>
+                            </div>
+                            <div class="h-24">
+                                <canvas id="reversionChart"></canvas>
+                            </div>
+                            <div class="mt-2 text-center font-medium" id="reversionStrength">High Probability</div>
+                        </div>
+                        
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <div class="flex items-center mb-2">
+                                <div class="w-8 h-8 rounded-full bg-red-900 flex items-center justify-center mr-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium">Market Regime</div>
+                                    <div class="text-xs text-gray-400">Current market condition</div>
+                                </div>
+                            </div>
+                            <div class="h-24">
+                                <canvas id="regimeChart"></canvas>
+                            </div>
+                            <div class="mt-2 text-center font-medium" id="marketRegimeDetail">Volatile Trending</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let multipliers = [];
+        let accuracy = 75.0;
+        let multiplierRange = 20.0;
+        let speechRecognition = null;
+        let isListening = false;
+        let accuracyHistory = [];
+        let rangeHistory = [];
+        let lastPredictionTime = null;
+        let accuracyChart = null;
+        let rangeChart = null;
+        let trendChart = null;
+        let volatilityChart = null;
+        let reversionChart = null;
+        let regimeChart = null;
+        let predictionTimelineChart = null;
+        let currentModelVersion = 0;
+        let trainingHistory = [];
+        
+        // DOM Elements
+        const multiplierInput = document.getElementById('multiplierInput');
+        const addMultiplierBtn = document.getElementById('addMultiplier');
+        const generatePredictionBtn = document.getElementById('generatePrediction');
+        const multipliersContainer = document.getElementById('multipliersContainer');
+        const multiplierCount = document.getElementById('multiplierCount');
+        const noMultipliersMessage = document.getElementById('noMultipliersMessage');
+        const deleteAllMultipliersBtn = document.getElementById('deleteAllMultipliers');
+        const toggleVoiceBtn = document.getElementById('toggleVoice');
+        const voiceIndicator = document.getElementById('voiceIndicator');
+        const predictionResults = document.getElementById('predictionResults');
+        const systemStatus = document.getElementById('systemStatus');
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteAllModal = document.getElementById('deleteAllModal');
+        const cancelDelete = document.getElementById('cancelDelete');
+        const confirmDelete = document.getElementById('confirmDelete');
+        const cancelDeleteAll = document.getElementById('cancelDeleteAll');
+        const confirmDeleteAll = document.getElementById('confirmDeleteAll');
+        const deleteMessage = document.getElementById('deleteMessage');
+        const speechBubble = document.getElementById('speechBubble');
+        const voiceCommands = document.getElementById('voiceCommands');
+        
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load saved data from localStorage
+            loadFromLocalStorage();
+            
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Initialize charts
+            initCharts();
+            
+            // Check system status
+            checkSystemStatus();
+            
+            // Load model metadata
+            loadModelMetadata();
+            
+            // Setup speech recognition if available
+            setupSpeechRecognition();
+            
+            // Update UI
+            updateMultipliersDisplay();
+            updateAccuracyDisplay();
+            updateRangeDisplay();
+            
+            // Auto-scroll to bottom of multipliers list
+            scrollToBottom();
+        });
+        
+        // Load saved data from localStorage
+        function loadFromLocalStorage() {
+            try {
+                const savedMultipliers = localStorage.getItem('crashPredictor_multipliers');
+                if (savedMultipliers) {
+                    multipliers = JSON.parse(savedMultipliers);
+                }
+                
+                const savedAccuracyHistory = localStorage.getItem('crashPredictor_accuracyHistory');
+                if (savedAccuracyHistory) {
+                    accuracyHistory = JSON.parse(savedAccuracyHistory);
+                }
+                
+                const savedRangeHistory = localStorage.getItem('crashPredictor_rangeHistory');
+                if (savedRangeHistory) {
+                    rangeHistory = JSON.parse(savedRangeHistory);
+                }
+                
+                const savedTrainingHistory = localStorage.getItem('crashPredictor_trainingHistory');
+                if (savedTrainingHistory) {
+                    trainingHistory = JSON.parse(savedTrainingHistory);
+                }
+            } catch (e) {
+                console.error('Error loading from localStorage:', e);
+            }
+        }
+        
+        // Save data to localStorage
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem('crashPredictor_multipliers', JSON.stringify(multipliers));
+                localStorage.setItem('crashPredictor_accuracyHistory', JSON.stringify(accuracyHistory));
+                localStorage.setItem('crashPredictor_rangeHistory', JSON.stringify(rangeHistory));
+                localStorage.setItem('crashPredictor_trainingHistory', JSON.stringify(trainingHistory));
+            } catch (e) {
+                console.error('Error saving to localStorage:', e);
+            }
+        }
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            // Add multiplier button
+            addMultiplierBtn.addEventListener('click', addMultiplier);
+            
+            // Enter key in multiplier input
+            multiplierInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    addMultiplier();
+                }
+            });
+            
+            // Generate prediction button
+            generatePredictionBtn.addEventListener('click', generatePrediction);
+            
+            // Delete all multipliers button
+            deleteAllMultipliersBtn.addEventListener('click', function() {
+                if (multipliers.length === 0) return;
+                deleteMessage.textContent = 'Are you sure you want to delete all multipliers? This cannot be undone.';
+                deleteAllModal.classList.add('active');
+            });
+            
+            // Voice toggle button
+            toggleVoiceBtn.addEventListener('click', toggleVoiceRecognition);
+            
+            // Modal buttons
+            cancelDelete.addEventListener('click', function() {
+                deleteModal.classList.remove('active');
+            });
+            
+            confirmDelete.addEventListener('click', function() {
+                const index = parseInt(deleteModal.getAttribute('data-index'));
+                if (!isNaN(index)) {
+                    deleteMultiplier(index);
+                }
+                deleteModal.classList.remove('active');
+            });
+            
+            cancelDeleteAll.addEventListener('click', function() {
+                deleteAllModal.classList.remove('active');
+            });
+            
+            confirmDeleteAll.addEventListener('click', function() {
+                multipliers = [];
+                updateMultipliersDisplay();
+                saveToLocalStorage();
+                generatePredictionBtn.disabled = true;
+                deleteAllModal.classList.remove('active');
+            });
+        }
+        
+        // Initialize charts
+        function initCharts() {
+            // Accuracy Chart
+            const accuracyCtx = document.getElementById('accuracyChart').getContext('2d');
+            accuracyChart = new Chart(accuracyCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Accuracy %',
+                        data: [],
+                        borderColor: '#4c6ef5',
+                        backgroundColor: 'rgba(76, 110, 245, 0.1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#4c6ef5',
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 70,
+                            max: 100,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#a0aec0'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#a0aec0',
+                                maxTicksLimit: 6
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Range Chart
+            const rangeCtx = document.getElementById('rangeChart').getContext('2d');
+            rangeChart = new Chart(rangeCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Range %',
+                        data: [],
+                        borderColor: '#be185d',
+                        backgroundColor: 'rgba(190, 24, 93, 0.1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#be185d',
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 5,
+                            max: 65,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#a0aec0'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#a0aec0',
+                                maxTicksLimit: 6
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Trend Chart
+            const trendCtx = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(trendCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Upward', 'Downward', 'Neutral'],
+                    datasets: [{
+                        data: [45, 30, 25],
+                        backgroundColor: [
+                            'rgba(34, 197, 94, 0.7)',
+                            'rgba(239, 68, 68, 0.7)',
+                            'rgba(59, 130, 246, 0.7)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#a0aec0',
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Volatility Chart
+            const volatilityCtx = document.getElementById('volatilityChart').getContext('2d');
+            volatilityChart = new Chart(volatilityCtx, {
+                type: 'radar',
+                data: {
+                    labels: ['Low', 'Medium', 'High'],
+                    datasets: [{
+                        label: 'Volatility',
+                        data: [20, 50, 30],
+                        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                        borderColor: '#f59e0b',
+                        pointBackgroundColor: '#f59e0b',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#f59e0b'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            pointLabels: {
+                                color: '#a0aec0'
+                            },
+                            ticks: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+            
+            // Reversion Chart
+            const reversionCtx = document.getElementById('reversionChart').getContext('2d');
+            reversionChart = new Chart(reversionCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Probability'],
+                    datasets: [{
+                        label: 'Mean Reversion',
+                        data: [75],
+                        backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                        borderColor: 'rgba(16, 185, 129, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            min: 0,
+                            max: 100,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#a0aec0'
+                            }
+                        },
+                        y: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Regime Chart
+            const regimeCtx = document.getElementById('regimeChart').getContext('2d');
+            regimeChart = new Chart(regimeCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Trending', 'Ranging', 'Volatile'],
+                    datasets: [{
+                        data: [40, 35, 25],
+                        backgroundColor: [
+                            'rgba(96, 165, 250, 0.7)',
+                            'rgba(167, 139, 250, 0.7)',
+                            'rgba(244, 63, 94, 0.7)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#a0aec0',
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Prediction Timeline Chart
+            const timelineCtx = document.getElementById('predictionTimeline').getContext('2d');
+            predictionTimelineChart = new Chart(timelineCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Prediction',
+                        data: [],
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#8b5cf6',
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#a0aec0'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: '#a0aec0',
+                                maxTicksLimit: 6
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Setup speech recognition
+        function setupSpeechRecognition() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                speechRecognition = new SpeechRecognition();
+                speechRecognition.continuous = true;
+                speechRecognition.interimResults = true;
+                speechRecognition.lang = 'en-US';
+                
+                speechRecognition.onstart = function() {
+                    isListening = true;
+                    voiceIndicator.classList.add('active');
+                    toggleVoiceBtn.textContent = 'Stop Listening';
+                    toggleVoiceBtn.classList.remove('bg-gray-600', 'hover:bg-gray-500');
+                    toggleVoiceBtn.classList.add('bg-red-600', 'hover:bg-red-500');
+                };
+                
+                speechRecognition.onend = function() {
+                    isListening = false;
+                    voiceIndicator.classList.remove('active');
+                    toggleVoiceBtn.textContent = 'Start Listening';
+                    toggleVoiceBtn.classList.remove('bg-red-600', 'hover:bg-red-500');
+                    toggleVoiceBtn.classList.add('bg-gray-600', 'hover:bg-gray-500');
+                    
+                    // Restart recognition after a short delay to maintain continuous listening
+                    if (window.speechRecognitionActive) {
+                        setTimeout(() => {
+                            if (window.speechRecognitionActive) {
+                                speechRecognition.start();
+                            }
+                        }, 1000);
+                    }
+                };
+                
+                speechRecognition.onresult = function(event) {
+                    let transcript = '';
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        if (event.results[i].isFinal) {
+                            transcript += event.results[i][0].transcript;
+                        }
+                    }
+                    
+                    if (transcript.trim() !== '') {
+                        processVoiceCommand(transcript.toLowerCase());
+                    }
+                };
+                
+                speechRecognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                    if (event.error === 'not-allowed') {
+                        showSpeechBubble('Microphone access denied. Please enable microphone permissions.');
+                    }
+                };
+            } else {
+                toggleVoiceBtn.disabled = true;
+                toggleVoiceBtn.textContent = 'Not Supported';
+                showSpeechBubble('Voice recognition is not supported in your browser.');
+            }
+        }
+        
+        // Toggle voice recognition
+        function toggleVoiceRecognition() {
+            if (!speechRecognition) {
+                showSpeechBubble('Voice recognition is not supported in your browser.');
+                return;
+            }
+            
+            if (isListening) {
+                window.speechRecognitionActive = false;
+                speechRecognition.stop();
+            } else {
+                window.speechRecognitionActive = true;
+                try {
+                    speechRecognition.start();
+                    showSpeechBubble('Listening for commands...');
+                } catch (e) {
+                    console.error('Error starting speech recognition:', e);
+                    showSpeechBubble('Error starting voice recognition. Please try again.');
+                }
+            }
+        }
+        
+        // Process voice command
+        function processVoiceCommand(command) {
+            console.log('Voice command:', command);
+            
+            // Add recent command to history
+            const commands = voiceCommands.querySelectorAll('.voice-command');
+            commands.forEach(cmd => cmd.classList.remove('recent'));
+            
+            const newCommand = document.createElement('div');
+            newCommand.className = 'voice-command recent';
+            newCommand.textContent = command;
+            voiceCommands.insertBefore(newCommand, voiceCommands.firstChild);
+            
+            if (commands.length >= 3) {
+                commands[commands.length - 1].remove();
+            }
+            
+            // Process command
+            if (command.includes('multiplier') || command.includes('multiplier')) {
+                const numberMatch = command.match(/[\d.]+/);
+                if (numberMatch) {
+                    const value = parseFloat(numberMatch[0]);
+                    if (!isNaN(value) && value > 0) {
+                        addMultiplierManually(value);
+                        showSpeechBubble(`Added multiplier ${value}`);
+                        
+                        // Auto-focus input and move cursor down
+                        setTimeout(() => {
+                            multiplierInput.focus();
+                            multiplierInput.value = '';
+                        }, 500);
+                    }
+                }
+            } else if (command.includes('delete last') || command.includes('remove last')) {
+                if (multipliers.length > 0) {
+                    const lastMultiplier = multipliers[multipliers.length - 1];
+                    deleteMultiplier(multipliers.length - 1);
+                    showSpeechBubble(`Deleted multiplier ${lastMultiplier}`);
+                } else {
+                    showSpeechBubble('No multipliers to delete');
+                }
+            } else if (command.includes('delete all') || command.includes('clear all')) {
+                if (multipliers.length > 0) {
+                    deleteMessage.textContent = 'Are you sure you want to delete all multipliers? This cannot be undone.';
+                    deleteAllModal.classList.add('active');
+                    showSpeechBubble('Confirm deletion of all multipliers');
+                } else {
+                    showSpeechBubble('No multipliers to delete');
+                }
+            } else if (command.includes('done') || command.includes('predict')) {
+                if (multipliers.length >= 50) {
+                    generatePrediction();
+                    showSpeechBubble('Generating prediction...');
+                } else {
+                    showSpeechBubble(`Need ${50 - multipliers.length} more multipliers for prediction`);
+                }
+            } else if (command.includes('accuracy') || command.includes('how accurate')) {
+                showSpeechBubble(`Current accuracy is ${accuracy.toFixed(2)}%`);
+            } else if (command.includes('range') || command.includes('prediction range')) {
+                showSpeechBubble(`Current prediction range is ±${multiplierRange.toFixed(2)}%`);
+            }
+        }
+        
+        // Add multiplier manually
+        function addMultiplierManually(value) {
+            if (typeof value === 'string') {
+                value = parseFloat(value);
+            }
+            
+            if (isNaN(value) || value <= 0) {
+                showSpeechBubble('Please enter a valid positive number');
+                return;
+            }
+            
+            multipliers.push(value);
+            updateMultipliersDisplay();
+            saveToLocalStorage();
+            
+            // Enable prediction button if we have enough multipliers
+            generatePredictionBtn.disabled = multipliers.length < 50;
+            
+            // Auto-scroll to bottom
+            scrollToBottom();
+        }
+        
+        // Add multiplier from input
+        function addMultiplier() {
+            const value = multiplierInput.value.trim();
+            if (value === '') return;
+            
+            addMultiplierManually(value);
+            multiplierInput.value = '';
+            multiplierInput.focus();
+        }
+        
+        // Delete a specific multiplier
+        function deleteMultiplier(index) {
+            if (index >= 0 && index < multipliers.length) {
+                multipliers.splice(index, 1);
+                updateMultipliersDisplay();
+                saveToLocalStorage();
+                
+                // Disable prediction button if not enough multipliers
+                generatePredictionBtn.disabled = multipliers.length < 50;
+            }
+        }
+        
+        // Update multipliers display
+        function updateMultipliersDisplay() {
+            // Update count
+            multiplierCount.textContent = multipliers.length;
+            
+            // Show/hide no multipliers message
+            if (multipliers.length === 0) {
+                noMultipliersMessage.style.display = 'block';
+            } else {
+                noMultipliersMessage.style.display = 'none';
+            }
+            
+            // Clear container
+            multipliersContainer.innerHTML = '';
+            
+            // Add multipliers in reverse order (newest at top)
+            for (let i = multipliers.length - 1; i >= 0; i--) {
+                const index = i;
+                const multiplier = multipliers[index];
+                
+                const multiplierItem = document.createElement('div');
+                multiplierItem.className = 'multiplier-item bg-gray-800 rounded p-2 mb-2 flex items-center';
+                multiplierItem.innerHTML = `
+                    <span class="flex-1 font-mono">${multiplier.toFixed(2)}</span>
+                    <button class="delete-btn text-red-400 hover:text-red-300 transition duration-200 ml-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                `;
+                
+                // Add delete functionality
+                const deleteBtn = multiplierItem.querySelector('.delete-btn');
+                deleteBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    deleteMessage.textContent = `Are you sure you want to delete multiplier ${multiplier}?`;
+                    deleteModal.setAttribute('data-index', index);
+                    deleteModal.classList.add('active');
+                });
+                
+                // Add to container
+                multipliersContainer.appendChild(multiplierItem);
+            }
+        }
+        
+        // Generate prediction
+        function generatePrediction() {
+            if (multipliers.length < 50) {
+                showSpeechBubble(`Need ${50 - multipliers.length} more multipliers for prediction`);
+                return;
+            }
+            
+            // Show loading state
+            generatePredictionBtn.disabled = true;
+            generatePredictionBtn.innerHTML = '<svg class="animate-spin h-4 w-4 mr-2 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Predicting...';
+            
+            // Simulate API call with delay
+            setTimeout(() => {
+                // Calculate prediction based on multipliers
+                const prediction = calculatePrediction(multipliers);
+                
+                // Update UI with prediction
+                updatePredictionResults(prediction);
+                
+                // Update prediction timeline chart
+                updatePredictionTimeline(prediction.predictedValue);
+                
+                // Update last prediction time
+                lastPredictionTime = new Date();
+                document.getElementById('predictionTimestamp').textContent = 'Just now';
+                
+                // Re-enable button
+                generatePredictionBtn.disabled = false;
+                generatePredictionBtn.textContent = 'Generate Prediction';
+                
+                // Show prediction results with animation
+                predictionResults.classList.add('visible');
+                
+                // Show speech bubble
+                showSpeechBubble(`Prediction generated: ${prediction.predictedValue.toFixed(2)}`);
+            }, 800);
+        }
+        
+        // Calculate prediction
+        function calculatePrediction(multipliers) {
+            // In a real application, this would call your API
+            // For demo purposes, we'll simulate a prediction
+            
+            // Calculate average of last 50 multipliers
+            const recentMultipliers = multipliers.slice(-50);
+            const avg = recentMultipliers.reduce((sum, val) => sum + val, 0) / 50;
+            
+            // Add some randomness for variation
+            const randomFactor = 0.95 + Math.random() * 0.1;
+            let predictedValue = avg * randomFactor;
+            
+            // Ensure predicted value is reasonable
+            predictedValue = Math.max(1.0, Math.min(10.0, predictedValue));
+            
+            // Calculate confidence based on accuracy
+            const confidence = accuracy / 100;
+            
+            // Calculate range based on multiplierRange
+            const rangeLower = Math.max(1.0, predictedValue * (1 - multiplierRange / 100));
+            const rangeUpper = predictedValue * (1 + multiplierRange / 100);
+            
+            // Determine risk level
+            let riskLevel = 'Low';
+            if (multiplierRange > 30) {
+                riskLevel = 'High';
+            } else if (multiplierRange > 15) {
+                riskLevel = 'Medium';
+            }
+            
+            // Determine market regime
+            let marketRegime = 'Stable';
+            if (multiplierRange > 30 && accuracy < 80) {
+                marketRegime = 'Volatile Ranging';
+            } else if (multiplierRange < 20 && accuracy > 85) {
+                marketRegime = 'Strong Trending';
+            } else if (multiplierRange > 25 && accuracy > 80) {
+                marketRegime = 'Volatile Trending';
+            }
+            
+            // Check for spikes
+            const hasSpike = detectSpikes(recentMultipliers);
+            
+            return {
+                predictedValue: predictedValue,
+                confidence: confidence,
+                rangeLower: rangeLower,
+                rangeUpper: rangeUpper,
+                riskLevel: riskLevel,
+                marketRegime: marketRegime,
+                hasSpike: hasSpike
+            };
+        }
+        
+        // Detect spikes in data
+        function detectSpikes(data) {
+            const mean = data.reduce((sum, val) => sum + val, 0) / data.length;
+            const squaredDiffs = data.map(val => {
+                const diff = val - mean;
+                return diff * diff;
+            });
+            const avgSquaredDiff = squaredDiffs.reduce((sum, val) => sum + val, 0) / data.length;
+            const stdDev = Math.sqrt(avgSquaredDiff);
+            
+            // Check if any value is more than 3 standard deviations from mean
+            return data.some(val => Math.abs(val - mean) > 3 * stdDev);
+        }
+        
+        // Update prediction results
+        function updatePredictionResults(prediction) {
+            // Update predicted value
+            document.getElementById('predictedValue').textContent = prediction.predictedValue.toFixed(2);
+            
+            // Update range values
+            document.getElementById('rangeLowerValue').textContent = prediction.rangeLower.toFixed(2);
+            document.getElementById('rangeUpperValue').textContent = prediction.rangeUpper.toFixed(2);
+            
+            // Update range visualization
+            const lowerPercent = (prediction.rangeLower / prediction.predictedValue) * 100;
+            const upperPercent = (prediction.rangeUpper / prediction.predictedValue) * 100;
+            const middlePercent = 100;
+            
+            document.getElementById('rangeLower').style.left = `${100 - lowerPercent}%`;
+            document.getElementById('rangeLower').style.width = '5%';
+            
+            document.getElementById('rangeMiddle').style.left = `${100 - middlePercent}%`;
+            document.getElementById('rangeMiddle').style.width = `${upperPercent - lowerPercent - 10}%`;
+            
+            document.getElementById('rangeUpper').style.left = `${100 - upperPercent + 5}%`;
+            document.getElementById('rangeUpper').style.width = '5%';
+            
+            // Update confidence
+            const confidencePercent = Math.round(prediction.confidence * 100);
+            document.getElementById('confidencePercentage').textContent = `${confidencePercent}%`;
+            document.getElementById('confidenceBar').style.width = `${confidencePercent}%`;
+            
+            // Update detailed confidence metrics
+            document.getElementById('bayesianConfidence').textContent = `${Math.min(100, confidencePercent + 5)}%`;
+            document.getElementById('trendConfidence').textContent = `${Math.min(100, confidencePercent - 5)}%`;
+            document.getElementById('volatilityConfidence').textContent = `${Math.min(100, confidencePercent - 10)}%`;
+            document.getElementById('meanReversionConfidence').textContent = `${Math.min(100, confidencePercent + 10)}%`;
+            
+            // Update risk assessment
+            document.getElementById('riskLevel').textContent = prediction.riskLevel;
+            document.getElementById('riskDisplay').textContent = prediction.riskLevel;
+            
+            // Update market regime
+            document.getElementById('marketRegime').textContent = prediction.marketRegime;
+            document.getElementById('marketRegimeDetail').textContent = prediction.marketRegime;
+            
+            // Update spike detection
+            const spikeStatus = document.getElementById('spikeStatus');
+            const spikeMessage = document.getElementById('spikeMessage');
+            if (prediction.hasSpike) {
+                spikeStatus.className = 'inline-block w-2 h-2 bg-red-500 rounded-full mr-2';
+                spikeMessage.textContent = 'Significant spike detected';
+            } else {
+                spikeStatus.className = 'inline-block w-2 h-2 bg-green-500 rounded-full mr-2';
+                spikeMessage.textContent = 'No significant spikes detected';
+            }
+            
+            // Update volatility
+            const volatilityPercent = Math.min(100, multiplierRange * 1.5);
+            document.getElementById('volatilityBar').style.width = `${volatilityPercent}%`;
+            document.getElementById('volatilityMeter').style.width = `${volatilityPercent}%`;
+            
+            // Update trend strength visualization
+            updateTrendVisualization(prediction);
+        }
+        
+        // Update trend visualization
+        function updateTrendVisualization(prediction) {
+            // Simulate trend data based on prediction
+            let upward = 40;
+            let downward = 30;
+            let neutral = 30;
+            
+            if (prediction.predictedValue > 2.0) {
+                upward = 50;
+                downward = 20;
+                neutral = 30;
+            } else if (prediction.predictedValue < 1.5) {
+                upward = 20;
+                downward = 50;
+                neutral = 30;
+            }
+            
+            // Update trend chart
+            trendChart.data.datasets[0].data = [upward, downward, neutral];
+            trendChart.update();
+            
+            // Update trend strength display
+            if (upward > 45) {
+                document.getElementById('trendStrength').textContent = 'Strong Upward';
+            } else if (downward > 45) {
+                document.getElementById('trendStrength').textContent = 'Strong Downward';
+            } else if (upward > downward) {
+                document.getElementById('trendStrength').textContent = 'Mild Upward';
+            } else if (downward > upward) {
+                document.getElementById('trendStrength').textContent = 'Mild Downward';
+            } else {
+                document.getElementById('trendStrength').textContent = 'Neutral';
+            }
+            
+            // Update volatility chart
+            volatilityChart.data.datasets[0].data = [20, 50, 30]; // Simulated data
+            volatilityChart.update();
+            
+            // Update volatility level
+            if (multiplierRange > 30) {
+                document.getElementById('volatilityLevel').textContent = 'High';
+            } else if (multiplierRange > 15) {
+                document.getElementById('volatilityLevel').textContent = 'Moderate';
+            } else {
+                document.getElementById('volatilityLevel').textContent = 'Low';
+            }
+            
+            // Update reversion chart
+            const reversionValue = Math.min(100, multiplierRange * 2);
+            reversionChart.data.datasets[0].data = [reversionValue];
+            reversionChart.update();
+            
+            // Update reversion strength
+            if (reversionValue > 70) {
+                document.getElementById('reversionStrength').textContent = 'High Probability';
+            } else if (reversionValue > 40) {
+                document.getElementById('reversionStrength').textContent = 'Medium Probability';
+            } else {
+                document.getElementById('reversionStrength').textContent = 'Low Probability';
+            }
+            
+            // Update regime chart
+            let trending = 40;
+            let ranging = 35;
+            let volatile = 25;
+            
+            if (prediction.marketRegime === 'Strong Trending') {
+                trending = 60;
+                ranging = 20;
+                volatile = 20;
+            } else if (prediction.marketRegime === 'Volatile Ranging') {
+                trending = 20;
+                ranging = 50;
+                volatile = 30;
+            } else if (prediction.marketRegime === 'Volatile Trending') {
+                trending = 45;
+                ranging = 25;
+                volatile = 30;
+            }
+            
+            regimeChart.data.datasets[0].data = [trending, ranging, volatile];
+            regimeChart.update();
+        }
+        
+        // Update prediction timeline
+        function updatePredictionTimeline(value) {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            // Add new point to chart
+            predictionTimelineChart.data.labels.push(timestamp);
+            predictionTimelineChart.data.datasets[0].data.push(value);
+            
+            // Keep only last 10 points
+            if (predictionTimelineChart.data.labels.length > 10) {
+                predictionTimelineChart.data.labels.shift();
+                predictionTimelineChart.data.datasets[0].data.shift();
+            }
+            
+            predictionTimelineChart.update();
+        }
+        
+        // Update accuracy display
+        function updateAccuracyDisplay() {
+            // Update accuracy display
+            document.getElementById('accuracyDisplay').textContent = `${accuracy.toFixed(2)}%`;
+            
+            // Update accuracy circle
+            document.getElementById('accuracyCircle').style.setProperty('--accuracy', `${accuracy}%`);
+            document.getElementById('accuracyValue').textContent = `${Math.round(accuracy)}%`;
+            
+            // Update confidence meter
+            document.getElementById('confidenceMeter').style.width = `${accuracy}%`;
+            
+            // Update range trend
+            const rangeTrend = document.getElementById('rangeTrend');
+            if (rangeHistory.length > 1) {
+                const previousRange = rangeHistory[rangeHistory.length - 2];
+                const currentRange = rangeHistory[rangeHistory.length - 1];
+                
+                if (currentRange < previousRange) {
+                    rangeTrend.textContent = 'Narrowing';
+                } else if (currentRange > previousRange) {
+                    rangeTrend.textContent = 'Widening';
+                } else {
+                    rangeTrend.textContent = 'Stable';
+                }
+            }
+        }
+        
+        // Update range display
+        function updateRangeDisplay() {
+            // Update range display
+            document.getElementById('rangeDisplay').textContent = `±${multiplierRange.toFixed(2)}%`;
+            
+            // Update range trend
+            const rangeTrend = document.getElementById('rangeTrend');
+            if (rangeHistory.length > 1) {
+                const previousRange = rangeHistory[rangeHistory.length - 2];
+                const currentRange = rangeHistory[rangeHistory.length - 1];
+                
+                if (currentRange < previousRange) {
+                    rangeTrend.textContent = 'Narrowing';
+                } else if (currentRange > previousRange) {
+                    rangeTrend.textContent = 'Widening';
+                } else {
+                    rangeTrend.textContent = 'Stable';
+                }
+            }
+        }
+        
+        // Check system status
+        function checkSystemStatus() {
+            // Simulate checking system status
+            const isOperational = true; // In a real app, this would check API status
+            
+            if (isOperational) {
+                systemStatus.innerHTML = `
+                    <span class="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                    System Operational
+                `;
+            } else {
+                systemStatus.innerHTML = `
+                    <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                    System Degraded
+                `;
+            }
+        }
+        
+        // Load model metadata
+        function loadModelMetadata() {
+            // In a real application, this would fetch from GitHub
+            // For demo purposes, we'll simulate loading metadata
+            
+            // Try to load from GitHub
+            fetch('https://raw.githubusercontent.com/eustancek/Crashpredictor/main/metadata.json')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Update accuracy
+                    accuracy = data.accuracy || 75.0;
+                    multiplierRange = data.range_percentage || 20.0;
+                    
+                    // Update history
+                    const timestamp = new Date().toISOString();
+                    accuracyHistory.push({x: timestamp, y: accuracy});
+                    rangeHistory.push({x: timestamp, y: multiplierRange});
+                    
+                    // Update UI
+                    updateAccuracyDisplay();
+                    updateRangeDisplay();
+                    
+                    // Update charts
+                    updateCharts();
+                    
+                    // Update last updated time
+                    document.getElementById('lastUpdated').textContent = formatDate(timestamp);
+                    
+                    // Save to localStorage
+                    saveToLocalStorage();
+                })
+                .catch(error => {
+                    console.error('Error loading metadata:', error);
+                    // Fallback to local storage or default values
+                    if (accuracyHistory.length > 0) {
+                        accuracy = accuracyHistory[accuracyHistory.length - 1].y;
+                    }
+                    if (rangeHistory.length > 0) {
+                        multiplierRange = rangeHistory[rangeHistory.length - 1].y;
+                    }
+                    
+                    updateAccuracyDisplay();
+                    updateRangeDisplay();
+                    updateCharts();
+                });
+        }
+        
+        // Update charts with history data
+        function updateCharts() {
+            // Update accuracy chart
+            accuracyChart.data.labels = accuracyHistory.map(item => new Date(item.x));
+            accuracyChart.data.datasets[0].data = accuracyHistory.map(item => item.y);
+            accuracyChart.update();
+            
+            // Update range chart
+            rangeChart.data.labels = rangeHistory.map(item => new Date(item.x));
+            rangeChart.data.datasets[0].data = rangeHistory.map(item => item.y);
+            rangeChart.update();
+            
+            // Update model history display
+            updateModelHistory();
+        }
+        
+        // Update model history display
+        function updateModelHistory() {
+            const historyContainer = document.querySelector('.model-history');
+            historyContainer.innerHTML = '';
+            
+            if (trainingHistory.length === 0) {
+                historyContainer.innerHTML = '<div class="text-center text-gray-500 py-4">No training history yet</div>';
+                return;
+            }
+            
+            // Sort history by date (newest first)
+            const sortedHistory = [...trainingHistory].sort((a, b) => 
+                new Date(b.timestamp) - new Date(a.timestamp)
+            );
+            
+            // Add history items
+            sortedHistory.forEach((entry, index) => {
+                const historyItem = document.createElement('div');
+                historyItem.className = 'history-item bg-gray-700 rounded p-3';
+                historyItem.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="font-medium">${formatDate(entry.timestamp)}</div>
+                            <div class="text-sm text-gray-400 mt-1">
+                                Version ${entry.model_version || '1.0'} | 
+                                Accuracy: ${entry.accuracy.toFixed(2)}% | 
+                                Range: ${entry.range_after.toFixed(2)}%
+                            </div>
+                        </div>
+                        <span class="px-2 py-1 bg-blue-900 text-blue-200 rounded text-xs">
+                            v${entry.model_version || '1'}
+                        </span>
+                    </div>
+                `;
+                historyContainer.appendChild(historyItem);
+            });
+        }
+        
+        // Format date for display
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+        
+        // Show speech bubble
+        function showSpeechBubble(message) {
+            speechBubble.textContent = message;
+            speechBubble.classList.add('visible');
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                speechBubble.classList.remove('visible');
+            }, 3000);
+        }
+        
+        // Scroll to bottom of multipliers list
+        function scrollToBottom() {
+            multipliersContainer.scrollTop = multipliersContainer.scrollHeight;
+        }
+        
+        // Auto-refresh metadata periodically
+        setInterval(loadModelMetadata, 60000); // Every minute
+    </script>
+</body>
+</html>
