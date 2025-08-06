@@ -1,5 +1,0 @@
-# Track ONLY the latest model with LFS (critical!)
-models/latest_model.keras filter=lfs diff=lfs merge=lfs -text
-
-# Ignore historical model versions (they should be on Hugging Face)
-models/crash_model_*.keras -diff.
