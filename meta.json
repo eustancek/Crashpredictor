@@ -1,0 +1,112 @@
+{
+  "metadata_version": "2.3.1",
+  "status": "active",
+  "last_updated": "2023-10-05T14:30:45.123Z",
+  "system_health": {
+    "status": "operational",
+    "last_verification": "2023-10-05T14:29:30.456Z",
+    "verification_interval": "5m",
+    "verification_count": 1428,
+    "error_count": 0
+  },
+  "current_multiplier": {
+    "value": 1.25,
+    "baked_into_model": true,
+    "accuracy": 82.45,
+    "range_percentage": 26.5,
+    "confidence_level": 0.82,
+    "timestamp": "2023-10-05T14:30:45.123Z",
+    "version": 42,
+    "training_sessions": 42,
+    "sequence_length": 50,
+    "data_points_used": 15320,
+    "last_prediction": {
+      "value": 2.45,
+      "cash_out_range": {
+        "lower": 1.8,
+        "upper": 3.1,
+        "range_percentage": 26.5
+      },
+      "prediction_time_ms": 78.2,
+      "timestamp": "2023-10-05T14:29:15.789Z"
+    }
+  },
+  "multiplier_history": [
+    {
+      "value": 1.25,
+      "accuracy": 82.45,
+      "range_percentage": 26.5,
+      "timestamp": "2023-10-05T14:30:45.123Z",
+      "version": 42,
+      "training_sessions": 42,
+      "data_points_used": 15320,
+      "commit_hash": "a1b2c3d4e5f6",
+      "commit_message": "Model update: Best accuracy 82.45% (+7.45%) | Multiplier 1.2500 | Range: 26.50% | 42 training sessions"
+    },
+    {
+      "value": 1.24,
+      "accuracy": 81.90,
+      "range_percentage": 27.0,
+      "timestamp": "2023-10-04T09:15:22.789Z",
+      "version": 41,
+      "training_sessions": 41,
+      "data_points_used": 14985,
+      "commit_hash": "f6e5d4c3b2a1",
+      "commit_message": "Model update: Best accuracy 81.90% (+6.90%) | Multiplier 1.2400 | Range: 27.00% | 41 training sessions"
+    }
+  ],
+  "accuracy_trend": {
+    "current": 82.45,
+    "peak": 82.45,
+    "lowest": 75.00,
+    "average": 79.20,
+    "improvement_rate": 0.18,
+    "data_points": 42,
+    "trend_direction": "upward",
+    "confidence": 0.92
+  },
+  "range_analysis": {
+    "current": 26.5,
+    "peak": 35.0,
+    "lowest": 20.0,
+    "average": 27.8,
+    "trend_direction": "narrowing",
+    "improvement_rate": -0.25,
+    "confidence": 0.88
+  },
+  "model_performance": {
+    "prediction_speed_avg_ms": 78.2,
+    "prediction_speed_min_ms": 52.1,
+    "prediction_speed_max_ms": 145.3,
+    "uptime_percentage": 99.98,
+    "last_24h_predictions": 1428,
+    "error_rate": 0.0002
+  },
+  "data_quality": {
+    "total_crash_values": 15320,
+    "values_last_24h": 288,
+    "data_frequency": "5m",
+    "outliers_removed": 12,
+    "data_integrity_score": 0.98
+  },
+  "system_configuration": {
+    "sequence_length": 50,
+    "min_multiplier": 0.01,
+    "max_multiplier": 100.0,
+    "min_range": 5.0,
+    "max_range": 65.0,
+    "training_threshold": 0.005,
+    "auto_update_interval": "24h"
+  },
+  "fallback_values": {
+    "multiplier": 1.25,
+    "accuracy": 75.00,
+    "range_percentage": 20.0,
+    "sequence_length": 50
+  },
+  "verification": {
+    "signature": "sha256:4a3b2c1d0e9f8g7h6i5j4k3l2m1n0o9p8q7r6s5t4u3v2w1x0y9z8a7b6c5d4e3f2g1h0i",
+    "checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "verified": true
+  }
+}
