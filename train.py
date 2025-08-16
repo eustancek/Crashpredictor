@@ -77,8 +77,8 @@ else:
 # 🔑 2. Configure Quantum Credentials
 print("\n🔑 Configuring quantum credentials...")
 # SECURITY NOTE: Use environment variables for production
-SUPABASEURL = os.getenv("SUPABASE_URL", "https://fawcuwcqfwzvdoalcocx.supabase.co")
-SUPABASEKEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhd2N1d2NxZnd6dmRvYWxjb2N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDY3MjYsImV4cCI6MjA2NjQyMjcyNn0.5NCGUTGpPm7w2Jv0GURMKmGh-EQ7WztNLs9MD5_nSjc")
+SUPABASEURL = os.getenv("SUPABASEURL", "https://fawcuwcqfwzvdoalcocx.supabase.co")
+SUPABASEKEY = os.getenv("SUPABASEKEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZhd2N1d2NxZnd6dmRvYWxjb2N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA4NDY3MjYsImV4cCI6MjA2NjQyMjcyNn0.5NCGUTGpPm7w2Jv0GURMKmGh-EQ7WztNLs9MD5_nSjc")
 GITHUB_REPO = "https://github.com/eustancek/Crashpredictor.git"
 MODEL_STORAGE_URL = "https://model-storage.superposition.ai"
 
