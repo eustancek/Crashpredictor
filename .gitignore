@@ -1,0 +1,117 @@
+### Core Development ###
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+build/
+dist/
+*.egg
+*.whl
+.pytest_cache/
+pytest-of-*/
+.ipynb_checkpoints
+*.ipynb
+
+# Virtual environments
+env/
+venv/
+ENV/
+pythonenv*/
+env.bak/
+venv.bak/
+pip-wheel-metadata/
+installed-files.txt
+
+### Model & Data Management ###
+# Ignore ALL model files (use Hugging Face for storage)
+*.pkl
+*.h5
+*.joblib
+*.pt
+*.bin
+*.safetensors
+model/
+models/
+outputs/
+
+# Training artifacts
+*.index
+*.data-*
+*.meta
+checkpoint
+tf_events.*
+*.log
+*.tmp
+*.swp
+*~
+
+# Data files (only keep metadata.json)
+*.csv
+*.parquet
+*.json.bak
+*.log
+model_backup/
+colab_checkpoints/
+temp/
+tmp/
+
+### Environment & Secrets ###
+.env
+.env.local
+.env.*.local
+secrets.ini
+config.ini
+
+### System & IDE ###
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swn
+*.swo
+*.iml
+*.orig
+
+### Frontend/Netlify ###
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# Build artifacts
+.cache/
+dist/
+build/
+public/bundle.js
+
+### ML Specific ###
+# Hugging Face
+~/.cache/huggingface/
+transformers/
+.mlflow/
+
+# Memory profiles
+memory_usage.txt
+memory_profile*
