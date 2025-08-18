@@ -1,0 +1,6 @@
+# Ignore everything except essential frontend and API files
+*
+!index.html
+!app.js
+!api/predictor.js
+!metadata.json
